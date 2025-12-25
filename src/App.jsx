@@ -34,7 +34,7 @@ function App() {
 
     try {
       const response = await fetch(
-        'https://poojatailor.app.n8n.cloud/webhook-test/ux-blueprint',
+        'https://poojatailor.app.n8n.cloud/webhook/ux-blueprint',
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
