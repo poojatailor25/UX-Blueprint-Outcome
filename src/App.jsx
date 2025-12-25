@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import './styles.css'
 
 function App() {
+  // Phase 0 – Intake form
   const [formData, setFormData] = useState({
     brandName: '',
     marketIndustry: '',
@@ -14,10 +15,15 @@ function App() {
     designGuidelines: ''
   })
 
-  const [blueprintGenerated, setBlueprintGenerated] = useState(false)
-  const [blueprintData, setBlueprintData] = useState('')   // final AI text
+  // Result states (Phases 1–4)
+  const [researchSummary, setResearchSummary] = useState('')   // Phase 1–2
+  const [promptSeeds, setPromptSeeds] = useState('')           // Phase 3
+  const [wireframeRaw, setWireframeRaw] = useState('')         // Phase 4 (JSON string)
+
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
+
+  // --- Helpers --------------------------------------------------
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -30,7 +36,11 @@ function App() {
   const handleGenerateBlueprint = async () => {
     setIsLoading(true)
     setError(null)
-    setBlueprintGenerated(false)
+
+    // Reset old results
+    setResearchSummary('')
+    setPromptSeeds('')
+    setWireframeRaw('')
 
     try {
       const response = await fetch(
@@ -48,11 +58,22 @@ function App() {
 
       const data = await response.json()
 
-      // n8n returns the OpenAI response JSON from the last node
-      const content = data?.choices?.[0]?.message?.content || ''
-
-      setBlueprintData(content)
-      setBlueprintGenerated(true)
+      // 1) Preferred: clean JSON from n8n (recommended)
+      if (data.research_summary || data.prompt_seeds || data.wireframe_raw) {
+        setResearchSummary(data.research_summary || '')
+        setPromptSeeds(data.prompt_seeds || '')
+        setWireframeRaw(
+          typeof data.wireframe_raw === 'string'
+            ? data.wireframe_raw
+            : JSON.stringify(data.wireframe_raw, null, 2)
+        )
+      } else {
+        // 2) Fallback: raw OpenAI response (older version of the workflow)
+        const content = data?.choices?.[0]?.message?.content || ''
+        setResearchSummary(content)
+        setPromptSeeds('')
+        setWireframeRaw('')
+      }
     } catch (err) {
       console.error('Blueprint error:', err)
       setError('Blueprint generation failed. Please try again.')
@@ -60,6 +81,21 @@ function App() {
       setIsLoading(false)
     }
   }
+
+  const handleDownloadSummary = () => {
+    if (!researchSummary) return
+    const blob = new Blob([researchSummary], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${formData.brandName || 'project'}_ux_research_summary.txt`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  // --------------------------------------------------------------
+
+  const hasResults = !!(researchSummary || promptSeeds || wireframeRaw)
 
   return (
     <div className="app">
@@ -83,10 +119,10 @@ function App() {
 
       {/* Main Content */}
       <div className="main-container">
-        {/* Left Side - Form */}
+        {/* LEFT – Phase 0: Intake */}
         <div className="form-section">
           <div className="form-card">
-            <h2 className="phase-title">Phase 0: Intake - Project Basics</h2>
+            <h2 className="phase-title">Phase 0: Intake – Project Basics</h2>
 
             <div className="form-group">
               <label htmlFor="brandName">Brand Name:</label>
@@ -133,12 +169,14 @@ function App() {
             </div>
 
             <div className="form-group">
-              <label htmlFor="primaryTargetAudience">Primary Target Audience:</label>
+              <label htmlFor="primaryTargetAudience">
+                Primary Target Audience:
+              </label>
               <input
                 type="text"
                 id="primaryTargetAudience"
                 name="primaryTargetAudience"
-                placeholder="e.g. Elderly patients living alone"
+                placeholder="e.g. Adults 30–55 with chronic lifestyle conditions"
                 value={formData.primaryTargetAudience}
                 onChange={handleInputChange}
               />
@@ -203,7 +241,7 @@ function App() {
               <textarea
                 id="designGuidelines"
                 name="designGuidelines"
-                placeholder="e.g. Serious, Clinical, Highly accessible..."
+                placeholder="e.g. Calm, medically credible, highly accessible..."
                 value={formData.designGuidelines}
                 onChange={handleInputChange}
                 rows="4"
@@ -212,73 +250,115 @@ function App() {
           </div>
         </div>
 
-        {/* Right Side - Blueprint Content */}
+        {/* RIGHT – Phases 1–5 */}
         <div className="content-section">
           <div className="content-card">
-            {!blueprintGenerated ? (
+            {!hasResults && !isLoading && (
               <div className="empty-state">
-                {isLoading ? (
-                  <>
-                    <h3 className="empty-title">Generating Blueprint…</h3>
-                    <p className="empty-description">
-                      Running UX research & structuring the layout based on your inputs.
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <div className="empty-icon">
-                      <svg
-                        width="64"
-                        height="64"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <rect
-                          x="4"
-                          y="4"
-                          width="16"
-                          height="16"
-                          rx="2"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          fill="none"
-                        />
-                        <line
-                          x1="8"
-                          y1="8"
-                          x2="16"
-                          y2="8"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                        />
-                        <line
-                          x1="8"
-                          y1="12"
-                          x2="16"
-                          y2="12"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                    </div>
-                    <h3 className="empty-title">No Blueprint Generated Yet</h3>
-                    <p className="empty-description">
-                      Fill in the project details on the left and click "Generate Blueprint"
-                      to see the research synthesis and structural flow.
-                    </p>
-                  </>
-                )}
+                <div className="empty-icon">
+                  <svg
+                    width="64"
+                    height="64"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <rect
+                      x="4"
+                      y="4"
+                      width="16"
+                      height="16"
+                      rx="2"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      fill="none"
+                    />
+                    <line
+                      x1="8"
+                      y1="8"
+                      x2="16"
+                      y2="8"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                    <line
+                      x1="8"
+                      y1="12"
+                      x2="16"
+                      y2="12"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </div>
+                <h3 className="empty-title">No Blueprint Generated Yet</h3>
+                <p className="empty-description">
+                  Fill in the project details on the left and click
+                  {' '}“Generate Blueprint” to run UX research and get a structured layout.
+                </p>
                 {error && <p className="error-message">{error}</p>}
               </div>
-            ) : (
+            )}
+
+            {isLoading && (
+              <div className="empty-state">
+                <h3 className="empty-title">Generating Blueprint…</h3>
+                <p className="empty-description">
+                  Running UX research phases and composing the wireframe blueprint
+                  based on your inputs.
+                </p>
+              </div>
+            )}
+
+            {!isLoading && hasResults && (
               <div className="blueprint-content">
-                <h3>Blueprint Generated</h3>
-                <pre className="blueprint-text">
-                  {blueprintData}
-                </pre>
+                {/* Phase 1–2: UX Research / Summary */}
+                {researchSummary && (
+                  <section className="blueprint-section">
+                    <h3>Phase 1–2: UX Research & Summary</h3>
+                    <pre className="blueprint-text">
+                      {researchSummary}
+                    </pre>
+                  </section>
+                )}
+
+                {/* Phase 3: Prompt Seeds */}
+                {promptSeeds && (
+                  <section className="blueprint-section">
+                    <h3>Phase 3: Research Summary for Prompts</h3>
+                    <pre className="blueprint-text">
+                      {promptSeeds}
+                    </pre>
+                  </section>
+                )}
+
+                {/* Phase 4: Wireframe JSON */}
+                {wireframeRaw && (
+                  <section className="blueprint-section">
+                    <h3>Phase 4: Wireframe Blueprint (JSON)</h3>
+                    <pre className="blueprint-text">
+                      {wireframeRaw}
+                    </pre>
+                  </section>
+                )}
+
+                {/* Phase 5: Download */}
+                {researchSummary && (
+                  <section className="blueprint-section">
+                    <h3>Phase 5: Export</h3>
+                    <button
+                      type="button"
+                      className="generate-btn"
+                      onClick={handleDownloadSummary}
+                    >
+                      ⬇️ Download Research Summary (.txt)
+                    </button>
+                  </section>
+                )}
+
+                {error && <p className="error-message">{error}</p>}
               </div>
             )}
           </div>
