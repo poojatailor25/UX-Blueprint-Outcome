@@ -44,7 +44,7 @@ function App() {
 
     try {
       const response = await fetch(
-        'https://poojatailor.app.n8n.cloud/webhook/ux-blueprint',
+        'https://yashkhatri.app.n8n.cloud/webhook/ux-blueprint',
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -108,13 +108,24 @@ function App() {
             <p className="logo-subtitle">RESEARCH-TO-STRUCTURE TOOL</p>
           </div>
         </div>
-        <button
-          className="generate-btn"
-          onClick={handleGenerateBlueprint}
-          disabled={isLoading}
-        >
-          {isLoading ? 'Generating…' : 'Generate Blueprint'}
-        </button>
+        <div className="header-actions">
+          {hasResults && researchSummary && (
+            <button
+              type="button"
+              className="download-btn"
+              onClick={handleDownloadSummary}
+            >
+              ⬇️ Download Summary
+            </button>
+          )}
+          <button
+            className="generate-btn"
+            onClick={handleGenerateBlueprint}
+            disabled={isLoading}
+          >
+            {isLoading ? 'Generating…' : 'Generate Blueprint'}
+          </button>
+        </div>
       </header>
 
       {/* Main Content */}
